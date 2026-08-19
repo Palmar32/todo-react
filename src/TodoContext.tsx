@@ -6,119 +6,118 @@ import {
   useReducer,
   useState,
   type ReactNode,
-} from "react";
+} from 'react'
 
-export type Todo = { id: string; title: string; completed: boolean };
-export type TodoFilter = "all" | "active" | "completed";
+export type Todo = {
+  id: string
+  title: string
+  completed: boolean
+}
 
-const STORAGE_KEY = "todo-context-app:todos";
+export type TodoFilter = 'all' | 'active' | 'completed'
+
+
+const STORAGE_KEY = 'todo-context-app:todos'
 
 type TodoAction =
-  | { type: "add"; title: string }
-  | { type: "toggle"; id: string }
-  | { type: "delete"; id: string }
-  | { type: "clearCompleted" };
+  | { type: 'add'; title: string }
+  | { type: 'toggle'; id: string }
+  | { type: 'delete'; id: string }
+  | { type: 'clearCompleted' }
 
 type TodoContextValue = {
-  todos: Todo[];
-  activeCount: number;
-  completedCount: number;
-  storageError: string | null;
-  addTodo: (title: string) => void;
-  toggleTodo: (title: string) => void;
-  deleteTodo: (title: string) => void;
-  cleatCompleted: (title: string) => void;
-};
+  todos: Todo[]
+  activeCount: number
+  completedCount: number
+  storageError: string | null
+  addTodo: (title: string) => void
+  toggleTodo: (id: string) => void
+  deleteTodo: (id: string) => void
+  clearCompleted: () => void
+}
 
-const TodoContext = createContext<TodoContextValue | null>(null);
+const TodoContext = createContext<TodoContextValue | null>(null)
 
 const isTodo = (value: unknown): value is Todo => {
-  if (typeof value !== "object" || value == null) return false;
+  if (typeof value !== 'object' || value === null) return false
 
-  const todo = value as Record<string, unknown>;
+  const todo = value as Record<string, unknown>
   return (
-    typeof todo.id === "string" &&
-    typeof todo.title === "string" &&
-    typeof todo.comleted === "boolean"
-  );
-};
+    typeof todo.id === 'string' &&
+    typeof todo.title === 'string' &&
+    typeof todo.completed === 'boolean'
+  )
+}
 
 const loadTodos = (): Todo[] => {
   try {
-    const savedTodos: unknown = JSON.parse(
-      window.localStorage.get(STORAGE_KEY) ?? "[]",
-    );
+    const savedTodos: unknown = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '[]')
 
-    if (Array.isArray(savedTodos) && savedTodos.every(isTodo))
-      return savedTodos;
+    if (Array.isArray(savedTodos) && savedTodos.every(isTodo)) return savedTodos
 
-    console.warn("Сохраненный список задач имеет неверный формат.");
-  } catch (e) {
-    console.warn("Не удалось прочитать сохраненный список задач.");
+    console.warn('Сохранённый список задач имеет неверный формат и был сброшен.')
+  } catch (error) {
+    console.warn('Не удалось прочитать сохранённый список задач.', error)
   }
-  return [];
-};
+
+  return []
+}
 
 const todoReducer = (todos: Todo[], action: TodoAction): Todo[] => {
   switch (action.type) {
-    case "add": {
-      const title = action.title.trim();
-      if (!title) return todos;
+    case 'add': {
+      const title = action.title.trim()
+      if (!title) return todos
 
-      return [
-        ...todos,
-        { id: crypto.randomUUID(), title: title, completed: false },
-      ];
+      return [...todos, { id: crypto.randomUUID(), title, completed: false }]
     }
-    case "toggle": {
+    case 'toggle':
       return todos.map((todo) =>
         todo.id === action.id ? { ...todo, completed: !todo.completed } : todo,
-      );
-    }
-    case "delete": {
-      return todos.filter((todo) => todo.id !== action.id);
-    }
-
-    case "clearCompleted": {
-      return todos.filter((todo) => !todo.completed);
-    }
+      )
+    case 'delete':
+      return todos.filter((todo) => todo.id !== action.id)
+    case 'clearCompleted':
+      return todos.filter((todo) => !todo.completed)
   }
-};
+}
 
 export function TodoProvider({ children }: { children: ReactNode }) {
-  const [todos, dispatch] = useReducer(todoReducer, undefined, loadTodos);
-  const [storageError, setStorageError] = useState<string | null>(null);
+  const [todos, dispatch] = useReducer(todoReducer, undefined, loadTodos)
+  const [storageError, setStorageError] = useState<string | null>(null)
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
-      setStorageError(null);
-    } catch (e) {
-      setStorageError("Не удалось сохранить изменения в браузере");
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(todos))
+      setStorageError(null)
+    } catch (error) {
+      console.error('Не удалось сохранить список задач.', error)
+      setStorageError('Не удалось сохранить изменения в браузере.')
     }
-  }, [todos]);
+  }, [todos])
 
   const value = useMemo<TodoContextValue>(() => {
-    const completedCount = todos.filter((todo) => todo.completed).length;
+    const completedCount = todos.filter((todo) => todo.completed).length
 
     return {
       todos,
       activeCount: todos.length - completedCount,
       completedCount,
       storageError,
-      addTodo: (title: string) => dispatch({ type: "add", title }),
-      toggleTodo: (id: string) => dispatch({ type: "toggle", id }),
-      deleteTodo: (id: string) => dispatch({ type: "delete", id }),
-      cleatCompleted: () => dispatch({ type: "clearCompleted" }),
-    };
-  }, [storageError, todos]);
-  return <TodoContext.Provider value={value}>{children}</TodoContext.Provider>;
+      addTodo: (title) => dispatch({ type: 'add', title }),
+      toggleTodo: (id) => dispatch({ type: 'toggle', id }),
+      deleteTodo: (id) => dispatch({ type: 'delete', id }),
+      clearCompleted: () => dispatch({ type: 'clearCompleted' }),
+    }
+  }, [storageError, todos])
+
+  return <TodoContext.Provider value={value}>{children}</TodoContext.Provider>
 }
 
 export function useTodos() {
-  const context = useContext(TodoContext);
+  const context = useContext(TodoContext)
 
-  if (!context) {
-    throw new Error("useTodos должен использоваться внутри TodoProvide");
-  }
+  if (!context) throw new Error('useTodos должен использоваться внутри TodoProvider')
+
+  return context
 }
